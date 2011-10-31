@@ -72,7 +72,7 @@ module DeadlockRetry
       return unless DeadlockRetry.innodb_status_cmd == nil
 
       begin
-        mysql_version = self.connection.execute('show variables like \'version\'').to_a[0][1]
+        mysql_version = self.connection.select_rows('show variables like \'version\'')[0][1]
         cmd = if mysql_version < '5.5'
           'show innodb status'
         else
