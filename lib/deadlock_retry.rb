@@ -18,7 +18,8 @@ module DeadlockRetry
   module ClassMethods
     DEADLOCK_ERROR_MESSAGES = [
       "Deadlock found when trying to get lock",
-      "Lock wait timeout exceeded"
+      "Lock wait timeout exceeded",
+      "deadlock detected"
     ]
 
     MAXIMUM_RETRIES_ON_DEADLOCK = 3
@@ -71,17 +72,21 @@ module DeadlockRetry
     def check_innodb_status_available
       return unless DeadlockRetry.innodb_status_cmd == nil
 
-      begin
-        mysql_version = self.connection.select_rows('show variables like \'version\'')[0][1]
-        cmd = if mysql_version < '5.5'
-          'show innodb status'
-        else
-          'show engine innodb status'
+      if self.connection.adapter_name == "MySQL"
+        begin
+          mysql_version = self.connection.select_rows('show variables like \'version\'')[0][1]
+          cmd = if mysql_version < '5.5'
+            'show innodb status'
+          else
+            'show engine innodb status'
+          end
+          self.connection.select_value(cmd)
+          DeadlockRetry.innodb_status_cmd = cmd
+        rescue
+          logger.info "Cannot log innodb status: #{$!.message}"
+          DeadlockRetry.innodb_status_cmd = false
         end
-        self.connection.select_value(cmd)
-        DeadlockRetry.innodb_status_cmd = cmd
-      rescue
-        logger.info "Cannot log innodb status: #{$!.message}"
+      else
         DeadlockRetry.innodb_status_cmd = false
       end
     end

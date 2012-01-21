@@ -37,12 +37,16 @@ class MockModel
     []
   end
 
-  def self.execute(sql)
+  def self.select_rows(sql)
     [['version', '5.1.45']]
   end
 
   def self.select_value(sql)
     true
+  end
+
+  def self.adapter_name
+    "MySQL"
   end
 
   include DeadlockRetry
