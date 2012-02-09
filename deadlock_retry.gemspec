@@ -1,6 +1,8 @@
 # -*- encoding: utf-8 -*-
 
-require './lib/deadlock_retry'
+$:.push File.expand_path("../lib", __FILE__)
+
+require "deadlock_retry/version"
 
 Gem::Specification.new do |s|
   s.name = %q{deadlock_retry}

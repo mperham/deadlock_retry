@@ -1,9 +1,6 @@
 require 'active_support/core_ext/module/attribute_accessors'
 
 module DeadlockRetry
-
-  VERSION = '1.1.2'
-
   def self.included(base)
     base.extend(ClassMethods)
     base.class_eval do
