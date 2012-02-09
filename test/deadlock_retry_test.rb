@@ -1,7 +1,7 @@
 require 'rubygems'
 
 # Change the version if you want to test a different version of ActiveRecord
-gem 'activerecord', ' ~>3.0'
+gem 'activerecord', ENV['ACTIVERECORD_VERSION'] || ' ~>3.0'
 require 'active_record'
 require 'active_record/version'
 puts "Testing ActiveRecord #{ActiveRecord::VERSION::STRING}"
