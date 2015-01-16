@@ -15,9 +15,8 @@ module DeadlockRetry
   module ClassMethods
     DEADLOCK_ERROR_MESSAGES = [
       "Deadlock found when trying to get lock",
-      "Lock wait timeout exceeded",
       "deadlock detected"
-    ]
+    ] # removed "Lock wait timeout exceeded" as retrying is potentially suicidal
 
     MAXIMUM_RETRIES_ON_DEADLOCK = 3
 
