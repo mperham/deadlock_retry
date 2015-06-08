@@ -13,13 +13,12 @@ module DeadlockRetry
   mattr_accessor :innodb_status_cmd
 
   module ClassMethods
-    DEADLOCK_ERROR_MESSAGES = [
-      "Deadlock found when trying to get lock",
-      "Lock wait timeout exceeded",
-      "deadlock detected"
+    STATEMENT_INVALID_ERROR_MESSAGES = [
+      "Try restarting transaction",
+      "Duplicate entry"
     ]
 
-    MAXIMUM_RETRIES_ON_DEADLOCK = 3
+    MAX_RETRIES_ON_STATEMENT_INVALID = 3
 
 
     def transaction_with_deadlock_handling(*objects, &block)
@@ -31,8 +30,8 @@ module DeadlockRetry
         transaction_without_deadlock_handling(*objects, &block)
       rescue ActiveRecord::StatementInvalid => error
         raise if in_nested_transaction?
-        if DEADLOCK_ERROR_MESSAGES.any? { |msg| error.message =~ /#{Regexp.escape(msg)}/ }
-          raise if retry_count >= MAXIMUM_RETRIES_ON_DEADLOCK
+        if STATEMENT_INVALID_ERROR_MESSAGES.any? { |msg| error.message =~ /#{Regexp.escape(msg)}/i }
+          raise if retry_count >= MAX_RETRIES_ON_STATEMENT_INVALID
           retry_count += 1
           logger.info "Deadlock detected on retry #{retry_count}, restarting transaction"
           log_innodb_status if DeadlockRetry.innodb_status_cmd

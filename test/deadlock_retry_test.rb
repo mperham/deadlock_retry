@@ -55,8 +55,9 @@ end
 
 class DeadlockRetryTest < MiniTest::Test
 
-  DEADLOCK_ERROR = "MySQL::Error: Deadlock found when trying to get lock"
-  TIMEOUT_ERROR = "MySQL::Error: Lock wait timeout exceeded"
+  DEADLOCK_ERROR = "MySQL::Error: Deadlock found when trying to get lock. Try restarting transaction"
+  TIMEOUT_ERROR = "MySQL::Error: Lock wait timeout exceeded. Try restarting transaction"
+  DUPLICATE_ERROR = "ActiveRecord::RecordNotUnique: Duplicate entry"
 
   def setup
     MockModel.stubs(:exponential_pause)
@@ -74,6 +75,12 @@ class DeadlockRetryTest < MiniTest::Test
 
   def test_no_errors_with_lock_timeout
     errors = [ TIMEOUT_ERROR ] * 3
+    assert_equal :success, MockModel.transaction { raise ActiveRecord::StatementInvalid, errors.shift unless errors.empty?; :success }
+    assert errors.empty?
+  end
+
+  def test_no_errors_with_duplicate
+    errors = [ DUPLICATE_ERROR ] * 3
     assert_equal :success, MockModel.transaction { raise ActiveRecord::StatementInvalid, errors.shift unless errors.empty?; :success }
     assert errors.empty?
   end
@@ -110,7 +117,7 @@ class DeadlockRetryTest < MiniTest::Test
       MockModel.transaction do
         MockModel.transaction do
           errors += 1
-          raise ActiveRecord::StatementInvalid, "MySQL::Error: Lock wait timeout exceeded" unless errors > 3
+          raise ActiveRecord::StatementInvalid, TIMEOUT_ERROR unless errors > 3
         end
       end
     end
