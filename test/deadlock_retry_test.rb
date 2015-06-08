@@ -68,19 +68,19 @@ class DeadlockRetryTest < MiniTest::Test
   end
 
   def test_no_errors_with_deadlock
-    errors = [ DEADLOCK_ERROR ] * 3
+    errors = [ DEADLOCK_ERROR ] * DeadlockRetry::ClassMethods::MAX_RETRIES_ON_STATEMENT_INVALID
     assert_equal :success, MockModel.transaction { raise ActiveRecord::StatementInvalid, errors.shift unless errors.empty?; :success }
     assert errors.empty?
   end
 
   def test_no_errors_with_lock_timeout
-    errors = [ TIMEOUT_ERROR ] * 3
+    errors = [ TIMEOUT_ERROR ] * DeadlockRetry::ClassMethods::MAX_RETRIES_ON_STATEMENT_INVALID
     assert_equal :success, MockModel.transaction { raise ActiveRecord::StatementInvalid, errors.shift unless errors.empty?; :success }
     assert errors.empty?
   end
 
   def test_no_errors_with_duplicate
-    errors = [ DUPLICATE_ERROR ] * 3
+    errors = [ DUPLICATE_ERROR ] * DeadlockRetry::ClassMethods::MAX_RETRIES_ON_STATEMENT_INVALID
     assert_equal :success, MockModel.transaction { raise ActiveRecord::StatementInvalid, errors.shift unless errors.empty?; :success }
     assert errors.empty?
   end
@@ -117,11 +117,11 @@ class DeadlockRetryTest < MiniTest::Test
       MockModel.transaction do
         MockModel.transaction do
           errors += 1
-          raise ActiveRecord::StatementInvalid, TIMEOUT_ERROR unless errors > 3
+          raise ActiveRecord::StatementInvalid, TIMEOUT_ERROR unless errors > DeadlockRetry::ClassMethods::MAX_RETRIES_ON_STATEMENT_INVALID
         end
       end
     end
 
-    assert_equal 4, tries
+    assert_equal DeadlockRetry::ClassMethods::MAX_RETRIES_ON_STATEMENT_INVALID + 1, tries
   end
 end
