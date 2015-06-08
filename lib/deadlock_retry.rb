@@ -13,13 +13,12 @@ module DeadlockRetry
   mattr_accessor :innodb_status_cmd
 
   module ClassMethods
-    DEADLOCK_ERROR_MESSAGES = [
-      "Deadlock found when trying to get lock",
-      "Lock wait timeout exceeded",
-      "deadlock detected"
+    STATEMENT_INVALID_ERROR_MESSAGES = [
+      "Try restarting transaction",
+      "Duplicate entry"
     ]
 
-    MAXIMUM_RETRIES_ON_DEADLOCK = 3
+    MAX_RETRIES_ON_STATEMENT_INVALID = 5
 
 
     def transaction_with_deadlock_handling(*objects, &block)
@@ -31,11 +30,10 @@ module DeadlockRetry
         transaction_without_deadlock_handling(*objects, &block)
       rescue ActiveRecord::StatementInvalid => error
         raise if in_nested_transaction?
-        if DEADLOCK_ERROR_MESSAGES.any? { |msg| error.message =~ /#{Regexp.escape(msg)}/ }
-          raise if retry_count >= MAXIMUM_RETRIES_ON_DEADLOCK
+        if STATEMENT_INVALID_ERROR_MESSAGES.any? { |msg| error.message =~ /#{Regexp.escape(msg)}/i }
+          raise if retry_count >= MAX_RETRIES_ON_STATEMENT_INVALID
           retry_count += 1
-          logger.info "Deadlock detected on retry #{retry_count}, restarting transaction"
-          log_innodb_status if DeadlockRetry.innodb_status_cmd
+          log(retry_count)
           exponential_pause(retry_count)
           retry
         else
@@ -57,7 +55,11 @@ module DeadlockRetry
 
     def in_nested_transaction?
       # open_transactions was added in 2.2's connection pooling changes.
-      connection.open_transactions != 0
+      open_transactions != 0
+    end
+
+    def open_transactions
+      connection.open_transactions
     end
 
     def show_innodb_status
@@ -80,7 +82,6 @@ module DeadlockRetry
           self.connection.select_value(cmd)
           DeadlockRetry.innodb_status_cmd = cmd
         rescue
-          logger.info "Cannot log innodb status: #{$!.message}"
           DeadlockRetry.innodb_status_cmd = false
         end
       else
@@ -88,16 +89,15 @@ module DeadlockRetry
       end
     end
 
-    def log_innodb_status
+    def log(retry_count)
+      logger.warn "retry_tx.attempt=#{retry_count} retry_tx.max_attempts=#{MAX_RETRIES_ON_STATEMENT_INVALID} retry_tx.opentransactions=#{open_transactions} retry_tx.innodbstatus=#{innodb_status}"
+    end
+
+    def innodb_status
       # show innodb status is the only way to get visiblity into why
       # the transaction deadlocked.  log it.
-      lines = show_innodb_status
-      logger.warn "INNODB Status follows:"
-      lines.each_line do |line|
-        logger.warn line
-      end
+      show_innodb_status
     rescue => e
-      # Access denied, ignore
       logger.info "Cannot log innodb status: #{e.message}"
     end
 
