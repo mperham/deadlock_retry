@@ -1,4 +1,5 @@
 require 'active_support/core_ext/module/attribute_accessors'
+require 'base64'
 
 module DeadlockRetry
   def self.included(base)
@@ -63,7 +64,7 @@ module DeadlockRetry
     end
 
     def show_innodb_status
-       self.connection.select_value(DeadlockRetry.innodb_status_cmd)
+       self.connection.select_one(DeadlockRetry.innodb_status_cmd)["Status"]
     end
 
     # Should we try to log innodb status -- if we don't have permission to,
@@ -79,9 +80,11 @@ module DeadlockRetry
           else
             'show engine innodb status'
           end
-          self.connection.select_value(cmd)
+          self.connection.select_one(cmd)
           DeadlockRetry.innodb_status_cmd = cmd
-        rescue
+        rescue Exception => e
+          puts e
+
           DeadlockRetry.innodb_status_cmd = false
         end
       else
@@ -90,13 +93,13 @@ module DeadlockRetry
     end
 
     def log(retry_count)
-      logger.warn "retry_tx.attempt=#{retry_count} retry_tx.max_attempts=#{MAX_RETRIES_ON_STATEMENT_INVALID} retry_tx.opentransactions=#{open_transactions} retry_tx.innodbstatus=#{innodb_status}"
+      logger.warn "retry_tx.attempt=#{retry_count} retry_tx.max_attempts=#{MAX_RETRIES_ON_STATEMENT_INVALID} retry_tx.opentransactions=#{open_transactions} retry_tx.innodbstatusb64=#{base64_innodb_status}"
     end
 
-    def innodb_status
+    def base64_innodb_status
       # show innodb status is the only way to get visiblity into why
       # the transaction deadlocked.  log it.
-      show_innodb_status
+      Base64.encode64(show_innodb_status).gsub("\n","")
     rescue => e
       logger.info "Cannot log innodb status: #{e.message}"
     end

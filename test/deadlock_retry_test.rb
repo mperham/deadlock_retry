@@ -35,14 +35,14 @@ class MockModel
   end
 
   def self.show_innodb_status
-    []
+    "1607bf000 INNODB MONITOR OUTPUT"
   end
 
   def self.select_rows(sql)
     [['version', '5.1.45']]
   end
 
-  def self.select_value(sql)
+  def self.select_one(sql)
     true
   end
 
@@ -107,6 +107,14 @@ class DeadlockRetryTest < MiniTest::Test
     assert_equal "show innodb status", DeadlockRetry.innodb_status_cmd
   end
 
+  def test_failure_logging
+    mock_logger = mock
+    MockModel.expects(:logger).returns(mock_logger)
+    mock_logger.expects(:warn).with("retry_tx.attempt=1 retry_tx.max_attempts=5 retry_tx.opentransactions=0 retry_tx.innodbstatusb64=MTYwN2JmMDAwIElOTk9EQiBNT05JVE9SIE9VVFBVVA==")
+    errors = [ TIMEOUT_ERROR ]
+    assert_equal :success, MockModel.transaction { raise ActiveRecord::StatementInvalid, errors.shift unless errors.empty?; :success }
+    assert errors.empty?
+  end
 
   def test_error_in_nested_transaction_should_retry_outermost_transaction
     tries = 0
