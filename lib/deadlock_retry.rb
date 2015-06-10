@@ -83,7 +83,7 @@ module DeadlockRetry
           self.connection.select_one(cmd)
           DeadlockRetry.innodb_status_cmd = cmd
         rescue Exception => e
-          puts e
+          logger.info "Cannot log innodb status: #{e.message}"
 
           DeadlockRetry.innodb_status_cmd = false
         end
