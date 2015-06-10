@@ -13,6 +13,7 @@ require 'logger'
 require_relative  "../lib/deadlock_retry"
 
 class MockModel
+
   @@open_transactions = 0
 
   def self.transaction(*objects)
@@ -28,10 +29,6 @@ class MockModel
 
   def self.connection
     self
-  end
-
-  def self.logger
-    @logger ||= Logger.new(nil)
   end
 
   def self.show_innodb_status
@@ -51,6 +48,10 @@ class MockModel
   end
 
   include DeadlockRetry
+
+  def self.rails_logger
+    @logger ||= Logger.new(nil)
+  end
 end
 
 class DeadlockRetryTest < MiniTest::Test
@@ -109,7 +110,7 @@ class DeadlockRetryTest < MiniTest::Test
 
   def test_failure_logging
     mock_logger = mock
-    MockModel.expects(:logger).returns(mock_logger)
+    MockModel.expects(:rails_logger).returns(mock_logger)
     mock_logger.expects(:warn).with("retry_tx.attempt=1 retry_tx.max_attempts=5 retry_tx.opentransactions=0 retry_tx.innodbstatusb64=MTYwN2JmMDAwIElOTk9EQiBNT05JVE9SIE9VVFBVVA==")
     errors = [ TIMEOUT_ERROR ]
     assert_equal :success, MockModel.transaction { raise ActiveRecord::StatementInvalid, errors.shift unless errors.empty?; :success }

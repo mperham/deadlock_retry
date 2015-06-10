@@ -83,7 +83,7 @@ module DeadlockRetry
           self.connection.select_one(cmd)
           DeadlockRetry.innodb_status_cmd = cmd
         rescue Exception => e
-          logger.info "Cannot log innodb status: #{e.message}"
+          rails_logger.info "Cannot log innodb status: #{e.message}"
 
           DeadlockRetry.innodb_status_cmd = false
         end
@@ -93,7 +93,11 @@ module DeadlockRetry
     end
 
     def log(retry_count)
-      logger.warn "retry_tx.attempt=#{retry_count} retry_tx.max_attempts=#{MAX_RETRIES_ON_STATEMENT_INVALID} retry_tx.opentransactions=#{open_transactions} retry_tx.innodbstatusb64=#{base64_innodb_status}"
+      rails_logger.warn "retry_tx.attempt=#{retry_count} retry_tx.max_attempts=#{MAX_RETRIES_ON_STATEMENT_INVALID} retry_tx.opentransactions=#{open_transactions} retry_tx.innodbstatusb64=#{base64_innodb_status}"
+    end
+
+    def rails_logger
+      Rails.logger
     end
 
     def base64_innodb_status
@@ -101,7 +105,7 @@ module DeadlockRetry
       # the transaction deadlocked.  log it.
       Base64.encode64(show_innodb_status).gsub("\n","") if show_innodb_status
     rescue => e
-      logger.info "Cannot log innodb status: #{e.message}"
+      rails_logger.info "Cannot log innodb status: #{e.message}"
     end
 
   end
