@@ -72,7 +72,7 @@ module DeadlockRetry
     def check_innodb_status_available
       return unless DeadlockRetry.innodb_status_cmd == nil
 
-      if self.connection.adapter_name == "MySQL"
+      if self.connection.adapter_name.downcase.include?("mysql")
         begin
           mysql_version = self.connection.select_rows('show variables like \'version\'')[0][1]
           cmd = if mysql_version < '5.5'
@@ -99,7 +99,7 @@ module DeadlockRetry
     def base64_innodb_status
       # show innodb status is the only way to get visiblity into why
       # the transaction deadlocked.  log it.
-      Base64.encode64(show_innodb_status).gsub("\n","")
+      Base64.encode64(show_innodb_status).gsub("\n","") if show_innodb_status
     rescue => e
       logger.info "Cannot log innodb status: #{e.message}"
     end
