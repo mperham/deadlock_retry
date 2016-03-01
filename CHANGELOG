@@ -1,5 +1,9 @@
 deadlock_retry changes
 
+== v1.3.0
+
+* Do not use dots on logs, use :: instead
+
 == v1.2.0
 
 * Support for postgres (tomhughes)
