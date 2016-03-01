@@ -111,7 +111,7 @@ class DeadlockRetryTest < MiniTest::Test
   def test_failure_logging
     mock_logger = mock
     MockModel.expects(:rails_logger).returns(mock_logger)
-    mock_logger.expects(:warn).with("retry_tx.attempt=1 retry_tx.max_attempts=5 retry_tx.opentransactions=0 retry_tx.innodbstatusb64=MTYwN2JmMDAwIElOTk9EQiBNT05JVE9SIE9VVFBVVA==")
+    mock_logger.expects(:warn).with("retry_tx_attempt=1 retry_tx_max_attempts=5 retry_tx_opentransactions=0 retry_tx_innodbstatusb64=MTYwN2JmMDAwIElOTk9EQiBNT05JVE9SIE9VVFBVVA==")
     errors = [ TIMEOUT_ERROR ]
     assert_equal :success, MockModel.transaction { raise ActiveRecord::StatementInvalid, errors.shift unless errors.empty?; :success }
     assert errors.empty?

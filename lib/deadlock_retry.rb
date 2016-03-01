@@ -93,7 +93,7 @@ module DeadlockRetry
     end
 
     def log(retry_count)
-      rails_logger.warn "retry_tx.attempt=#{retry_count} retry_tx.max_attempts=#{MAX_RETRIES_ON_STATEMENT_INVALID} retry_tx.opentransactions=#{open_transactions} retry_tx.innodbstatusb64=#{base64_innodb_status}"
+      rails_logger.warn "retry_tx_attempt=#{retry_count} retry_tx_max_attempts=#{MAX_RETRIES_ON_STATEMENT_INVALID} retry_tx_opentransactions=#{open_transactions} retry_tx_innodbstatusb64=#{base64_innodb_status}"
     end
 
     def rails_logger
