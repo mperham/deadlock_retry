@@ -97,7 +97,7 @@ module DeadlockRetry
     end
 
     def rails_logger
-      Rails.logger
+      ::DEADLOCK_RETRY_LOGGER ||= Rails.logger
     end
 
     def base64_innodb_status
