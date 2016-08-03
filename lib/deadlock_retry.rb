@@ -1,5 +1,4 @@
 require 'active_support/core_ext/module/attribute_accessors'
-require 'base64'
 
 module DeadlockRetry
   def self.included(base)
@@ -93,19 +92,11 @@ module DeadlockRetry
     end
 
     def log(retry_count)
-      rails_logger.warn "retry_tx_attempt=#{retry_count} retry_tx_max_attempts=#{MAX_RETRIES_ON_STATEMENT_INVALID} retry_tx_opentransactions=#{open_transactions} retry_tx_innodbstatusb64=#{base64_innodb_status}"
+      rails_logger.warn "retry_tx_attempt=#{retry_count} retry_tx_max_attempts=#{MAX_RETRIES_ON_STATEMENT_INVALID} retry_tx_opentransactions=#{open_transactions} retry_tx_innodbstatus=#{show_innodb_status}"
     end
 
     def rails_logger
-      Rails.logger
-    end
-
-    def base64_innodb_status
-      # show innodb status is the only way to get visiblity into why
-      # the transaction deadlocked.  log it.
-      Base64.encode64(show_innodb_status).gsub("\n","") if show_innodb_status
-    rescue => e
-      rails_logger.info "Cannot log innodb status: #{e.message}"
+      ::DEADLOCK_RETRY_LOGGER ||= Rails.logger
     end
 
   end

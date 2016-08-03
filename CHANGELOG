@@ -1,5 +1,13 @@
 deadlock_retry changes
 
+== v1.5.0
+
+* Log innodb status without base64 encoding
+
+== v1.4.0
+
+* Log to predefined logger
+
 == v1.3.0
 
 * Do not use dots on logs, use :: instead
