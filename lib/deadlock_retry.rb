@@ -4,13 +4,12 @@ module DeadlockRetry
   mattr_accessor :innodb_status_cmd
 
   DEADLOCK_ERROR_MESSAGES = [
-    "Deadlock found when trying to get lock",
-    "Lock wait timeout exceeded",
-    "deadlock detected"
-  ]
+    'Deadlock found when trying to get lock',
+    'Lock wait timeout exceeded',
+    'deadlock detected'
+  ].freeze
 
   MAXIMUM_RETRIES_ON_DEADLOCK = 3
-
 
   def transaction(*objects, &block)
     retry_count = 0
@@ -36,10 +35,10 @@ module DeadlockRetry
 
   private
 
-  WAIT_TIMES = [0, 1, 2, 4, 8, 16, 32]
+  WAIT_TIMES = [0, 1, 2, 4, 8, 16, 32].freeze
 
   def exponential_pause(count)
-    sec = WAIT_TIMES[count-1] || 32
+    sec = WAIT_TIMES[count - 1] || 32
     # sleep 0, 1, 2, 4, ... seconds up to the MAXIMUM_RETRIES.
     # Cap the pause time at 32 seconds.
     sleep(sec) if sec != 0
@@ -51,26 +50,26 @@ module DeadlockRetry
   end
 
   def show_innodb_status
-     self.connection.select_value(DeadlockRetry.innodb_status_cmd)
+    connection.select_value(DeadlockRetry.innodb_status_cmd)
   end
 
   # Should we try to log innodb status -- if we don't have permission to,
   # we actually break in-flight transactions, silently (!)
   def check_innodb_status_available
-    return unless DeadlockRetry.innodb_status_cmd == nil
+    return unless DeadlockRetry.innodb_status_cmd.nil?
 
-    if self.connection.adapter_name == "MySQL"
+    if connection.adapter_name == 'MySQL'
       begin
-        mysql_version = self.connection.select_rows('show variables like \'version\'')[0][1]
+        mysql_version = connection.select_rows('show variables like \'version\'')[0][1]
         cmd = if mysql_version < '5.5'
-          'show innodb status'
-        else
-          'show engine innodb status'
+                'show innodb status'
+              else
+                'show engine innodb status'
         end
-        self.connection.select_value(cmd)
+        connection.select_value(cmd)
         DeadlockRetry.innodb_status_cmd = cmd
       rescue
-        logger.info "Cannot log innodb status: #{$!.message}"
+        logger.info "Cannot log innodb status: #{$ERROR_INFO.message}"
         DeadlockRetry.innodb_status_cmd = false
       end
     else
@@ -82,7 +81,7 @@ module DeadlockRetry
     # show innodb status is the only way to get visiblity into why
     # the transaction deadlocked.  log it.
     lines = show_innodb_status
-    logger.warn "INNODB Status follows:"
+    logger.warn 'INNODB Status follows:'
     lines.each_line do |line|
       logger.warn line
     end
