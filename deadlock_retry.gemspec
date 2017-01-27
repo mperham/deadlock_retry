@@ -15,5 +15,5 @@ Gem::Specification.new do |s|
   s.homepage = %q{http://github.com/mperham/deadlock_retry}
   s.require_paths = ["lib"]
   s.add_development_dependency 'mocha'
-  s.add_development_dependency 'activerecord', ENV['ACTIVERECORD_VERSION'] || ' ~>3.0'
+  s.add_development_dependency 'activerecord', ENV['ACTIVERECORD_VERSION'] || ' ~>5.0'
 end
