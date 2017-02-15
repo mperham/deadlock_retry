@@ -14,8 +14,7 @@ module DeadlockRetry
 
   module ClassMethods
     STATEMENT_INVALID_ERROR_MESSAGES = [
-      "Try restarting transaction",
-      "Duplicate entry"
+      "Try restarting transaction"
     ]
 
     MAX_RETRIES_ON_STATEMENT_INVALID = 5
