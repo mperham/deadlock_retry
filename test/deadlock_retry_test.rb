@@ -6,12 +6,14 @@ require 'active_record'
 require 'active_record/version'
 puts "Testing ActiveRecord #{ActiveRecord::VERSION::STRING}"
 
-require 'test/unit'
-require 'mocha'
+require 'minitest'
+require 'minitest/autorun'
+require 'mocha/mini_test'
 require 'logger'
-require "deadlock_retry"
+require_relative  "../lib/deadlock_retry"
 
 class MockModel
+
   @@open_transactions = 0
 
   def self.transaction(*objects)
@@ -29,19 +31,15 @@ class MockModel
     self
   end
 
-  def self.logger
-    @logger ||= Logger.new(nil)
-  end
-
   def self.show_innodb_status
-    []
+    "1607bf000 INNODB MONITOR OUTPUT"
   end
 
   def self.select_rows(sql)
     [['version', '5.1.45']]
   end
 
-  def self.select_value(sql)
+  def self.select_one(sql)
     true
   end
 
@@ -50,11 +48,17 @@ class MockModel
   end
 
   include DeadlockRetry
+
+  def self.rails_logger
+    @logger ||= Logger.new(nil)
+  end
 end
 
-class DeadlockRetryTest < Test::Unit::TestCase
-  DEADLOCK_ERROR = "MySQL::Error: Deadlock found when trying to get lock"
-  TIMEOUT_ERROR = "MySQL::Error: Lock wait timeout exceeded"
+class DeadlockRetryTest < MiniTest::Test
+
+  DEADLOCK_ERROR = "MySQL::Error: Deadlock found when trying to get lock. Try restarting transaction"
+  TIMEOUT_ERROR = "MySQL::Error: Lock wait timeout exceeded. Try restarting transaction"
+  DUPLICATE_ERROR = "ActiveRecord::RecordNotUnique: Duplicate entry"
 
   def setup
     MockModel.stubs(:exponential_pause)
@@ -65,25 +69,31 @@ class DeadlockRetryTest < Test::Unit::TestCase
   end
 
   def test_no_errors_with_deadlock
-    errors = [ DEADLOCK_ERROR ] * 3
+    errors = [ DEADLOCK_ERROR ] * DeadlockRetry::ClassMethods::MAX_RETRIES_ON_STATEMENT_INVALID
     assert_equal :success, MockModel.transaction { raise ActiveRecord::StatementInvalid, errors.shift unless errors.empty?; :success }
     assert errors.empty?
   end
 
   def test_no_errors_with_lock_timeout
-    errors = [ TIMEOUT_ERROR ] * 3
+    errors = [ TIMEOUT_ERROR ] * DeadlockRetry::ClassMethods::MAX_RETRIES_ON_STATEMENT_INVALID
+    assert_equal :success, MockModel.transaction { raise ActiveRecord::StatementInvalid, errors.shift unless errors.empty?; :success }
+    assert errors.empty?
+  end
+
+  def test_no_errors_with_duplicate
+    errors = [ DUPLICATE_ERROR ] * DeadlockRetry::ClassMethods::MAX_RETRIES_ON_STATEMENT_INVALID
     assert_equal :success, MockModel.transaction { raise ActiveRecord::StatementInvalid, errors.shift unless errors.empty?; :success }
     assert errors.empty?
   end
 
   def test_error_if_limit_exceeded
-    assert_raise(ActiveRecord::StatementInvalid) do
+    assert_raises(ActiveRecord::StatementInvalid) do
       MockModel.transaction { raise ActiveRecord::StatementInvalid, DEADLOCK_ERROR }
     end
   end
 
   def test_error_if_unrecognized_error
-    assert_raise(ActiveRecord::StatementInvalid) do
+    assert_raises(ActiveRecord::StatementInvalid) do
       MockModel.transaction { raise ActiveRecord::StatementInvalid, "Something else" }
     end
   end
@@ -98,6 +108,14 @@ class DeadlockRetryTest < Test::Unit::TestCase
     assert_equal "show innodb status", DeadlockRetry.innodb_status_cmd
   end
 
+  def test_failure_logging
+    mock_logger = mock
+    MockModel.expects(:rails_logger).returns(mock_logger)
+    mock_logger.expects(:warn).with("retry_tx_attempt=1 retry_tx_max_attempts=5 retry_tx_opentransactions=0 retry_tx_innodbstatusb64=MTYwN2JmMDAwIElOTk9EQiBNT05JVE9SIE9VVFBVVA==")
+    errors = [ TIMEOUT_ERROR ]
+    assert_equal :success, MockModel.transaction { raise ActiveRecord::StatementInvalid, errors.shift unless errors.empty?; :success }
+    assert errors.empty?
+  end
 
   def test_error_in_nested_transaction_should_retry_outermost_transaction
     tries = 0
@@ -108,11 +126,11 @@ class DeadlockRetryTest < Test::Unit::TestCase
       MockModel.transaction do
         MockModel.transaction do
           errors += 1
-          raise ActiveRecord::StatementInvalid, "MySQL::Error: Lock wait timeout exceeded" unless errors > 3
+          raise ActiveRecord::StatementInvalid, TIMEOUT_ERROR unless errors > DeadlockRetry::ClassMethods::MAX_RETRIES_ON_STATEMENT_INVALID
         end
       end
     end
 
-    assert_equal 4, tries
+    assert_equal DeadlockRetry::ClassMethods::MAX_RETRIES_ON_STATEMENT_INVALID + 1, tries
   end
 end
